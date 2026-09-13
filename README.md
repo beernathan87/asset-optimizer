@@ -67,4 +67,38 @@ npm test
 
 Audio transcoding, Unity project scanner (import settings, duplicates, unused assets), model/mesh optimization, SVG/GIF/AVIF, perceptual quality scoring. Those are the expansion path.
 
+## Install
+
+```bash
+npm install -g asset-optimizer     # Node 22.13+; sharp downloads a prebuilt libvips for Windows/macOS/Linux (x64/arm64)
+asset-optimizer --help
+```
+
+No network access is needed at run time; the tool never modifies originals and never uploads anything.
+
+## Production notes
+
+- **Verified 2026-09-13** from the packed tarball on Windows 11 and on Linux (node:22 Debian container): Unicode and space-containing paths, nested trees, read-only originals, conversion collisions (`a.png` + `a.jpg` → `a.png.webp` + `a.jpg.webp`), corrupt / zero-byte / disguised files reported as errors without output, junctions skipped, originals byte-identical after the run (hash-checked), identical reports on both platforms.
+- **Throughput:** 612 files / 20 MB of mixed PNG+JPEG (up to 2900×1600) → 5 MB in 11.9 s on a desktop CPU with the default concurrency of 4; peak working set 204 MB. Memory scales with concurrency × decoded image size (capped at 16 megapixels per image); lower `--concurrency` on small machines.
+- **Exit codes:** `0` finished (errors per file are in the report), `1` bad arguments / unusable output directory / unreadable root.
+- **Backup/update:** the tool has no state. Outputs go to a fresh `--out` directory; keep your originals under version control as usual. Update with `npm install -g asset-optimizer@latest`.
+- **Local UI** (`npm start`) binds 127.0.0.1 only, checks Host/Origin, sends a strict CSP, and is not an authentication boundary against other local users.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `sharp: Could not load the "sharp" module` | unsupported platform/arch or a blocked binary download during install - see https://sharp.pixelplumbing.com/install |
+| `output directory exists` | choose a new `--out`; existing destinations are never reused or overwritten |
+| a file shows `unreadable` | corrupt, zero-byte or not really the format its extension claims - the original is left alone |
+| slow on huge PNGs | lossless PNG encoding is CPU-bound; use `--preset web` (WebP) where acceptable |
+
+## Licensing note
+
+`asset-optimizer` is MIT. It depends on `sharp` (Apache-2.0), whose prebuilt binaries bundle libvips and other libraries under the LGPL-3.0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list and how those libraries can be replaced.
+
+## Credits
+
+Created by Nathan Beer. Developed by Nathan Beer with AI-assisted engineering using Claude and ChatGPT. Not affiliated with or endorsed by Unity, Valve/Steam, Discord or any other product referenced as an optimization target.
+
 MIT.

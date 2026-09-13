@@ -3,16 +3,20 @@ import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { readFileSync, existsSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { run } from "./run.js";
 import { PRESETS } from "./presets.js";
 
 // Local-only helper UI: it runs on your machine and optimizes folders on your disk.
 const PORT = Number(process.env.PORT) || 3000;
-const HTML = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+const HTML = readFileSync(new URL("../public/index.html", import.meta.url), "utf8").replace(/\r\n?/g, "\n");
+const SCRIPT_HASH = createHash("sha256").update(HTML.match(/<script>([\s\S]*?)<\/script>/)[1]).digest("base64");
+const CSP = `default-src 'none'; script-src 'sha256-${SCRIPT_HASH}'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
 export const app = new Hono();
 app.use("*", async (c, next) => {
   c.header("Cache-Control", "no-store");
+  c.header("Content-Security-Policy", CSP); c.header("X-Content-Type-Options", "nosniff"); c.header("X-Frame-Options", "DENY"); c.header("Referrer-Policy", "no-referrer");
   const host = c.req.header("host");
   const allowed = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`]);
   if (!allowed.has(host)) return c.json({ error: "invalid host" }, 403);
