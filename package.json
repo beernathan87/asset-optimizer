@@ -1,0 +1,19 @@
+{
+  "name": "asset-optimizer",
+  "version": "0.1.0",
+  "description": "Audit and optimize game/web assets with presets (Unity, web, mobile, Discord, Steam). Tells you why an asset is wasteful, not just how to shrink it.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "bin": { "asset-optimizer": "src/cli.js" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.6.0",
+    "music-metadata": "^11.0.0",
+    "sharp": "^0.33.5"
+  }
+}

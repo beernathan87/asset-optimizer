@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset Optimizer</title>
+<style>
+  :root { --fg:#1a1a1a; --muted:#666; --line:#e2e2e2; --accent:#1f6feb; --high:#c0392b; --medium:#b7791f; --low:#1a7f37 }
+  * { box-sizing:border-box } body { margin:0; font:15px/1.45 system-ui,sans-serif; background:#fafafa; color:var(--fg) }
+  main { max-width:1000px; margin:0 auto; padding:24px } h1 { font-size:20px; margin:0 0 4px }
+  form { display:grid; grid-template-columns:1fr 200px; gap:10px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; margin:16px 0 }
+  form .full { grid-column:1/-1 } input, select { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font:inherit }
+  button { padding:9px 14px; border:1px solid var(--accent); border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer } button:disabled { opacity:.5 }
+  .drop { border:2px dashed var(--line); border-radius:8px; padding:18px; text-align:center; color:var(--muted) } .drop.over { border-color:var(--accent); color:var(--accent) }
+  .muted { color:var(--muted); font-size:13px } .stats { display:flex; gap:20px; flex-wrap:wrap; margin:12px 0 } .stat b { display:block; font-size:22px }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; font-size:13.5px } th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top } th { color:var(--muted); font-size:12.5px }
+  .sev-high { color:var(--high) } .sev-medium { color:var(--medium) } .sev-low { color:var(--low) } details { margin:4px 0 } summary { cursor:pointer } .why { margin:4px 0 0 14px; font-size:13px }
+  pre { background:#f3f3f3; padding:10px; border-radius:6px; white-space:pre-wrap; font-size:12.5px }
+</style>
+<main>
+  <h1>Asset Optimizer</h1>
+  <div class="muted">Local tool: drop a folder (or paste its path), pick a preset, get optimized copies plus a report that explains what was wasteful and why.</div>
+  <form id="f">
+    <div class="full drop" id="drop">Drop a folder here, or paste a path below</div>
+    <input class="full" name="folder" id="folder" placeholder="C:\projects\my-game\Assets" required>
+    <select name="preset" id="preset"></select>
+    <label class="muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="keepFormat" style="width:auto"> keep formats</label>
+    <input name="out" placeholder="Output folder (default: <folder>/.optimized)">
+    <div style="display:flex;gap:8px;align-items:center"><label class="muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="dryRun" style="width:auto"> audit only</label><button id="go">Optimize</button></div>
+    <div class="full muted" id="presetNote"></div>
+  </form>
+  <div id="out"></div>
+</main>
+<script>
+(async () => {
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const fmt = (n) => n >= 1048576 ? (n / 1048576).toFixed(2) + " MB" : n >= 1024 ? (n / 1024).toFixed(1) + " KB" : n + " B";
+  const presets = await (await fetch("/api/presets")).json();
+  $("#preset").innerHTML = Object.entries(presets).map(([k, v]) => `<option value="${k}" ${k === "general" ? "selected" : ""}>${esc(v.label)}</option>`).join("");
+  const note = () => { $("#presetNote").innerHTML = (presets[$("#preset").value].notes || []).map((n) => `• ${esc(n)}`).join("<br>"); };
+  $("#preset").addEventListener("change", note); note();
+
+  // Folder drop: browsers expose the dropped folder name, not its full path; Chromium file paths are available via webkitRelativePath only for uploads.
+  // Since this tool runs locally we ask for the path, but a drop still fills the name as a hint.
+  const drop = $("#drop");
+  for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); });
+  for (const ev of ["dragleave", "drop"]) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); });
+  drop.addEventListener("drop", (e) => {
+    const item = e.dataTransfer.items?.[0]; const entry = item?.webkitGetAsEntry?.();
+    const f = e.dataTransfer.files?.[0];
+    const hint = entry?.name || f?.name || "";
+    if (f && f.path) $("#folder").value = f.path; // Electron-like environments expose the full path
+    else if (hint) { $("#folder").placeholder = `Dropped "${hint}" - browsers hide full paths; paste the folder path here`; $("#folder").focus(); }
+  });
+
+  $("#f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = { folder: fd.get("folder"), preset: fd.get("preset"), out: fd.get("out") || undefined, keepFormat: !!fd.get("keepFormat"), dryRun: !!fd.get("dryRun") };
+    $("#go").disabled = true; $("#out").innerHTML = `<p class="muted">Working…</p>`;
+    try {
+      const r = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const rep = await r.json();
+      if (!r.ok) throw new Error(rep.error || r.statusText);
+      render(rep);
+    } catch (err) { $("#out").innerHTML = `<p class="sev-high">${esc(err.message)}</p>`; }
+    finally { $("#go").disabled = false; }
+  });
+
+  function render(r) {
+    const t = r.totals;
+    $("#out").innerHTML = `
+      <div class="stats"><div class="stat"><b>${fmt(t.imageBytesBefore)}</b><span class="muted">images before</span></div><div class="stat"><b>${fmt(t.imageBytesAfter)}</b><span class="muted">after</span></div><div class="stat"><b>${t.savedPct}%</b><span class="muted">saved (${fmt(Math.max(t.saved, 0))})</span></div><div class="stat"><b class="sev-high">${t.findings.high}</b><span class="muted">high</span></div><div class="stat"><b class="sev-medium">${t.findings.medium}</b><span class="muted">medium</span></div><div class="stat"><b class="sev-low">${t.findings.low}</b><span class="muted">low</span></div></div>
+      ${r.outDir ? `<p class="muted">Optimized copies + report.md/report.json written to <code>${esc(r.outDir)}</code></p>` : `<p class="muted">Dry run - nothing written.</p>`}
+      <table><thead><tr><th>File</th><th>Before</th><th>After</th><th>Findings</th></tr></thead><tbody>
+      ${r.items.map((x) => `<tr><td>${esc(x.rel)}<div class="muted">${x.type === "image" ? `${x.width}x${x.height} ${x.kind}${x.hasAlpha ? " +alpha" : ""}` : `${esc(x.codec)} ${x.sampleRate} Hz ${x.channels}ch ${x.kbps} kbps ${x.duration}s`}</div></td>
+        <td>${x.error ? "-" : fmt(x.size)}</td>
+        <td>${x.error ? `<span class="sev-high">${esc(x.error)}</span>` : x.result?.outSize != null ? `${fmt(x.result.outSize)} <span class="sev-low">-${x.result.savedPct}%</span><div class="muted">${esc(x.result.actions.join(", "))}</div>` : x.result?.skipped ? "<span class=muted>kept</span>" : x.type === "audio" ? "<span class=muted>audit</span>" : "-"}</td>
+        <td>${(x.findings || []).length ? (x.findings).map((f) => `<details><summary class="sev-${f.severity}">${esc(f.code)}</summary><div class="why">${esc(f.why)}<br><b>Fix:</b> ${esc(f.fix)}</div></details>`).join("") : "<span class=sev-low>ok</span>"}</td></tr>`).join("")}
+      </tbody></table>`;
+  }
+})();
+</script>
+</html>
