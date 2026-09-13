@@ -1,4 +1,4 @@
-import { readdir, mkdir, writeFile } from "node:fs/promises";
+import { readdir, mkdir, writeFile, realpath } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
 import { IMAGE_EXT, analyseImage, optimizeImage } from "./images.js";
 import { AUDIO_EXT, analyseAudio } from "./audio.js";
@@ -6,10 +6,11 @@ import { PRESETS } from "./presets.js";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "Library", "Temp", "obj", "bin", ".optimized"]);
 
-export async function* walk(dir) {
+export async function* walk(dir, excluded) {
   for (const e of await readdir(dir, { withFileTypes: true })) {
-    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !e.name.startsWith(".")) yield* walk(join(dir, e.name)); }
-    else yield join(dir, e.name);
+    if (e.isSymbolicLink() || resolve(join(dir, e.name)).toLowerCase() === excluded) continue;
+    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !e.name.startsWith(".")) yield* walk(join(dir, e.name), excluded); }
+    else if (e.isFile()) yield join(dir, e.name);
   }
 }
 
@@ -21,15 +22,20 @@ const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(2)} MB` : n >= 
  * @param {{ preset?: string, outDir?: string, keepFormat?: boolean, dryRun?: boolean, concurrency?: number, onProgress?: (item) => void }} opts
  */
 export async function run(root, { preset = "general", outDir, keepFormat = false, dryRun = false, concurrency = 4, onProgress } = {}) {
-  if (!PRESETS[preset]) throw new Error(`unknown preset '${preset}'; use one of ${Object.keys(PRESETS).join(", ")}`);
-  root = resolve(root);
+  if (typeof preset !== "string" || !Object.hasOwn(PRESETS, preset)) throw new Error(`unknown preset '${preset}'; use one of ${Object.keys(PRESETS).join(", ")}`);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) throw new Error("concurrency must be an integer from 1 to 8");
+  root = await realpath(resolve(root));
   outDir = resolve(outDir || join(root, ".optimized"));
+  if (outDir.toLowerCase() === root.toLowerCase() || !relative(outDir, root).startsWith("..")) throw new Error("output must not contain the input root");
   const files = [];
-  for await (const f of walk(root)) {
+  for await (const f of walk(root, outDir.toLowerCase())) {
     const ext = extname(f).toLowerCase();
     if (IMAGE_EXT.has(ext) || AUDIO_EXT.has(ext)) files.push(f);
   }
-  if (!dryRun) await mkdir(outDir, { recursive: true });
+  if (!dryRun) {
+    // A fresh destination prevents stale files, symlink traversal and overwrites.
+    await mkdir(outDir);
+  }
 
   const items = [];
   let i = 0;
@@ -38,13 +44,15 @@ export async function run(root, { preset = "general", outDir, keepFormat = false
       const f = files[i++];
       const ext = extname(f).toLowerCase();
       let item;
+      try {
       if (IMAGE_EXT.has(ext)) {
         item = await analyseImage(f, preset);
         if (!item.error && !dryRun) {
           try { item.result = await optimizeImage(item, outDir, root, preset, { keepFormat }); }
-          catch (e) { item.result = { error: e.message }; }
+          catch (e) { item.error = `optimization failed: ${e.message}`; }
         }
       } else item = await analyseAudio(f, preset);
+      } catch (e) { item = { file: f, type: IMAGE_EXT.has(ext) ? "image" : "audio", error: e.message }; }
       item.rel = relative(root, f);
       items.push(item);
       onProgress?.(item);
@@ -81,7 +89,7 @@ export function toMarkdown(r) {
   lines.push("## Files", "", "| File | Before | After | Findings |", "|---|---|---|---|");
   for (const x of r.items) {
     if (x.error) { lines.push(`| ${x.rel} | - | - | error: ${x.error} |`); continue; }
-    const after = x.result?.outSize != null ? `${fmtBytes(x.result.outSize)} (-${x.result.savedPct}%)` : x.result?.skipped ? "kept" : x.type === "audio" ? "audit only" : "-";
+    const after = x.result?.outSize != null ? `${fmtBytes(x.result.outSize)} (-${x.result.savedPct}%)` : x.result?.skipped ? `kept: ${x.result.reason}` : x.type === "audio" ? "audit only" : "-";
     const f = (x.findings || []).map((f) => `**${f.code}**`).join(", ") || "ok";
     lines.push(`| ${x.rel} | ${fmtBytes(x.size)} | ${after} | ${f} |`);
   }

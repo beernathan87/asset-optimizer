@@ -22,15 +22,15 @@ export const PRESETS = {
     audio: { maxSampleRate: 44100, musicMaxBitrate: 128, wavMaxBytes: 200_000 },
   },
   discord: {
-    label: "Discord (emoji, stickers, embeds)", maxDim: 1920, maxBytes: 8 * 1024 * 1024,
+    label: "Discord (emoji, stickers, embeds)", maxDim: 1920, maxBytes: 10 * 1024 * 1024,
     png: { out: "png", quality: 85 }, jpeg: { out: "jpeg", quality: 85 }, webp: { out: "webp", quality: 85 },
-    notes: ["Emoji are shown at 32px (128px upload max); stickers at 160px (320px, 512 KB max). Anything larger is thrown away by Discord."],
+    notes: ["Emoji are shown at 32px (128px upload max); stickers at 160px (320px, 512 KB max). Filename-based role hints require confirmation; the general upload budget is configurable in source."],
     audio: { maxSampleRate: 48000, musicMaxBitrate: 128, wavMaxBytes: 500_000 },
   },
   steam: {
     label: "Steam store assets", maxDim: 3840,
     png: { out: "png", quality: 90 }, jpeg: { out: "jpeg", quality: 90 }, webp: { out: "png", quality: 90 },
-    notes: ["Steam wants exact capsule sizes (header 920x430, small 462x174, main 1232x706, vertical 748x896, library 600x900, hero 3840x1240, logo 1280x720). Anything else is resized by Steam - supply exact sizes."],
+    notes: ["Steam wants exact capsule sizes (header 920x430, small 462x174, main 1232x706, vertical 748x896, library 600x900, hero 3840x1240, logo 1280x720). Capsule-named files are checked against these sizes; other Steam artwork has different requirements."],
     audio: { maxSampleRate: 48000, musicMaxBitrate: 192, wavMaxBytes: 1_000_000 },
   },
   general: {

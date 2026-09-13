@@ -75,7 +75,7 @@
       <table><thead><tr><th>File</th><th>Before</th><th>After</th><th>Findings</th></tr></thead><tbody>
       ${r.items.map((x) => `<tr><td>${esc(x.rel)}<div class="muted">${x.type === "image" ? `${x.width}x${x.height} ${x.kind}${x.hasAlpha ? " +alpha" : ""}` : `${esc(x.codec)} ${x.sampleRate} Hz ${x.channels}ch ${x.kbps} kbps ${x.duration}s`}</div></td>
         <td>${x.error ? "-" : fmt(x.size)}</td>
-        <td>${x.error ? `<span class="sev-high">${esc(x.error)}</span>` : x.result?.outSize != null ? `${fmt(x.result.outSize)} <span class="sev-low">-${x.result.savedPct}%</span><div class="muted">${esc(x.result.actions.join(", "))}</div>` : x.result?.skipped ? "<span class=muted>kept</span>" : x.type === "audio" ? "<span class=muted>audit</span>" : "-"}</td>
+        <td>${x.error ? `<span class="sev-high">${esc(x.error)}</span>` : x.result?.outSize != null ? `${fmt(x.result.outSize)} <span class="sev-low">-${x.result.savedPct}%</span><div class="muted">${esc(x.result.actions.join(", "))}</div>` : x.result?.skipped ? `<span class=muted>kept: ${esc(x.result.reason)}</span>` : x.type === "audio" ? "<span class=muted>audit</span>" : "-"}</td>
         <td>${(x.findings || []).length ? (x.findings).map((f) => `<details><summary class="sev-${f.severity}">${esc(f.code)}</summary><div class="why">${esc(f.why)}<br><b>Fix:</b> ${esc(f.fix)}</div></details>`).join("") : "<span class=sev-low>ok</span>"}</td></tr>`).join("")}
       </tbody></table>`;
   }

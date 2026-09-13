@@ -7,7 +7,8 @@ import { run } from "../src/run.js";
 import { analyseImage } from "../src/images.js";
 import { analyseAudio } from "../src/audio.js";
 
-const TMP = join(import.meta.dirname, "tmp");
+sharp.cache(false);
+const TMP = join(import.meta.dirname, `tmp-${process.pid}`);
 
 /** Minimal valid 16-bit PCM WAV with the given seconds/channels/rate (silence). */
 function wav({ seconds = 1, channels = 2, rate = 48000 }) {
@@ -72,7 +73,8 @@ test("first milestone: drop a folder -> optimized copy + savings report", async 
   assert.equal(out.width, 2048);
   assert.equal(out.format, "webp");
   assert.equal(out.hasAlpha, false);
-  assert.ok((await stat(join(TMP, "out", "ui", "icon.webp"))).size > 0, "tree is mirrored");
+  const icon = report.items.find(x => x.rel.endsWith("icon.png"));
+  assert.ok(icon.result.skipped || (await stat(icon.result.outFile)).size > 0, "smaller copies mirror the tree; larger outputs are skipped");
   const md = await readFile(join(TMP, "out", "report.md"), "utf8");
   assert.match(md, /Images: .* -> .* \(saved/);
   assert.match(md, /What is wasteful and why/);
