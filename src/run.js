@@ -26,6 +26,8 @@ export async function run(root, { preset = "general", outDir, keepFormat = false
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) throw new Error("concurrency must be an integer from 1 to 8");
   root = await realpath(resolve(root));
   outDir = resolve(outDir || join(root, ".optimized"));
+  // Resolve an existing outDir the same way as root so 8.3 short names (e.g. RUNNER~1 in %TEMP%) or symlinks cannot disguise the input root.
+  try { outDir = await realpath(outDir); } catch { /* does not exist yet */ }
   if (outDir.toLowerCase() === root.toLowerCase() || !relative(outDir, root).startsWith("..")) throw new Error("output must not contain the input root");
   const files = [];
   for await (const f of walk(root, outDir.toLowerCase())) {
