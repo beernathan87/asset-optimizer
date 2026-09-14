@@ -18,8 +18,8 @@ jobs:
       - name: install from the tarball and run the CLI
         shell: bash
         run: |
-          mkdir -p /tmp/prefix && npm install -g --prefix /tmp/prefix ./*.tgz
-          BIN=/tmp/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=/tmp/prefix/asset-optimizer
+          mkdir -p $RUNNER_TEMP/prefix && npm install -g --prefix $RUNNER_TEMP/prefix ./*.tgz
+          BIN=$RUNNER_TEMP/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=$RUNNER_TEMP/prefix/asset-optimizer
           "$BIN" --help
-          mkdir -p /tmp/corpus && node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#123456'}}).png().toFile('/tmp/corpus/a.png')"
-          "$BIN" /tmp/corpus --preset web --out /tmp/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
+          mkdir -p $RUNNER_TEMP/corpus && node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#123456'}}).png().toFile('$RUNNER_TEMP/corpus/a.png')"
+          "$BIN" $RUNNER_TEMP/corpus --preset web --out $RUNNER_TEMP/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
