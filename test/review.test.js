@@ -38,7 +38,7 @@ test('small palettes are not called photos; larger conversions are skipped',asyn
  const r=await optimizeImage({...a,size:1},join(dir,'larger'),dir,'web');assert.equal(r.skipped,true);
 });
 test('output safety, input collisions, repeat scanning and concurrency bounds',async()=>{
- const root=join(dir,'root');await mkdir(root);
+ const root=join(dir,'root');await mkdir(root,{recursive:true});
  for(const ext of ['png','jpg']) await sharp({create:{width:2400,height:1200,channels:3,background:'red'}}).toFormat(ext==='jpg'?'jpeg':'png').toFile(join(root,`a.${ext}`));
  for(const concurrency of [0,-1,1.5,9,NaN]) await assert.rejects(run(root,{concurrency}),/concurrency/);
  await assert.rejects(run(root,{preset:'__proto__'}),/unknown preset/);
