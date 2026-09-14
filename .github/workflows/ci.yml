@@ -18,7 +18,7 @@ jobs:
       - name: install from the tarball and run the CLI
         shell: bash
         run: |
-          T="${RUNNER_TEMP//\//}"   # forward slashes: safe inside the quoted node -e strings on Windows
+          T="${RUNNER_TEMP//\\//}"   # forward slashes: safe inside the quoted node -e strings on Windows
           mkdir -p "$T/prefix" && npm install -g --prefix "$T/prefix" ./*.tgz
           BIN=$T/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=$T/prefix/asset-optimizer
           "$BIN" --help
