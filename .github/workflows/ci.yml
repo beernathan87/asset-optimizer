@@ -18,7 +18,8 @@ jobs:
       - name: install from the tarball and run the CLI
         shell: bash
         run: |
-          mkdir -p /tmp/prefix && npm install -g --prefix /tmp/prefix ./asset-optimizer-*.tgz
-          /tmp/prefix/asset-optimizer --help
+          mkdir -p /tmp/prefix && npm install -g --prefix /tmp/prefix ./*.tgz
+          BIN=/tmp/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=/tmp/prefix/asset-optimizer
+          "$BIN" --help
           mkdir -p /tmp/corpus && node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#123456'}}).png().toFile('/tmp/corpus/a.png')"
-          /tmp/prefix/asset-optimizer /tmp/corpus --preset web --out /tmp/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
+          "$BIN" /tmp/corpus --preset web --out /tmp/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
