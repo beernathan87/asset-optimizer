@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 - 2026-09-14
 
 First release: image audit + optimization (PNG/JPEG/WebP) with Unity/web/mobile/Discord/Steam/general presets, audio audit, markdown/JSON reports, local UI.
 
