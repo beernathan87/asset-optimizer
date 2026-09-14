@@ -18,8 +18,9 @@ jobs:
       - name: install from the tarball and run the CLI
         shell: bash
         run: |
-          mkdir -p $RUNNER_TEMP/prefix && npm install -g --prefix $RUNNER_TEMP/prefix ./*.tgz
-          BIN=$RUNNER_TEMP/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=$RUNNER_TEMP/prefix/asset-optimizer
+          T="${RUNNER_TEMP//\//}"   # forward slashes: safe inside the quoted node -e strings on Windows
+          mkdir -p "$T/prefix" && npm install -g --prefix "$T/prefix" ./*.tgz
+          BIN=$T/prefix/bin/asset-optimizer; [ -f "$BIN" ] || BIN=$T/prefix/asset-optimizer
           "$BIN" --help
-          mkdir -p $RUNNER_TEMP/corpus && node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#123456'}}).png().toFile('$RUNNER_TEMP/corpus/a.png')"
-          "$BIN" $RUNNER_TEMP/corpus --preset web --out $RUNNER_TEMP/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
+          mkdir -p $T/corpus && node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#123456'}}).png().toFile('$T/corpus/a.png')"
+          "$BIN" $T/corpus --preset web --out $T/out --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.totals.images!==1)process.exit(1)})"
